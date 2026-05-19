@@ -1,459 +1,243 @@
-# Notion OAuth Integration
+# Notion OAuth Connector
 
-A full-stack application integrating Notion's REST API with OAuth authentication, token management, and secure session handling.
+An open-source starter for connecting a web app to Notion with OAuth 2.0, secure token storage, Redis-backed sessions, and direct Notion REST API calls.
 
-## Important: MCP vs REST API
+This repository is a TypeScript monorepo with a Next.js frontend and an Express backend. It is useful as a reference implementation for teams that want to authenticate users with Notion, store tokens safely server-side, and query pages or databases from a browser UI.
 
-**Notion's MCP endpoint (`mcp.notion.com`) does NOT accept OAuth tokens.** OAuth access tokens (starting with `ntn_`) only work with Notion's REST API (`api.notion.com`).
+## Features
 
-This implementation uses **Notion's REST API directly** for all operations, which properly supports OAuth tokens obtained through the OAuth flow.
+- Notion OAuth 2.0 flow with PKCE and state validation
+- Encrypted server-side access and refresh token storage
+- PostgreSQL persistence for users, connections, and OAuth state
+- Redis-backed HttpOnly sessions
+- Next.js app with same-origin API rewrites to the backend
+- Express API for auth, connection status, Notion queries, and disconnect
+- Docker Compose setup for local PostgreSQL and Redis
+- TypeScript across frontend and backend
 
-### Supported Operations
+## Important Note
 
-| Frontend Action | Backend Operation | Notion REST API Call |
-|-----------------|-------------------|----------------------|
-| `list_pages` | `search_pages` | `POST /v1/search` with `filter: { property: "object", value: "page" }` |
-| `list_databases` | `search_databases` | `POST /v1/search` with `filter: { property: "object", value: "database" }` |
-| `search_pages` | `search_pages` | Same as above |
-| `get_page` | `get_page` | `GET /v1/pages/{pageId}` |
-| `get_database` | `get_database` | `GET /v1/databases/{databaseId}` |
+Notion OAuth access tokens work with the Notion REST API at `api.notion.com`. They are not accepted by Notion's MCP endpoint at `mcp.notion.com`.
 
----
+This project therefore uses the Notion REST API directly for operations such as listing pages, listing databases, fetching a page, and fetching a database.
 
-## Architecture Overview
+## Tech Stack
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        USER'S BROWSER                               │
-│  ┌──────────────┐  ┌────────────┐  ┌──────────────────────┐        │
-│  │ Home Page    │  │ Callback   │  │ Dashboard            │        │
-│  │ (Connect)    │  │ (OAuth)    │  │ (Notion Data)        │        │
-│  └──────┬───────┘  └─────┬──────┘  └──────────┬───────────┘        │
-│         │                │                    │                     │
-└─────────┼────────────────┼────────────────────┼─────────────────────┘
-          │                │                    │
-          ▼                ▼                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    NEXT.JS FRONTEND (Port 3000)                     │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  Next.js Rewrites (API Proxy)                                │   │
-│  │  /api/auth/*  → http://localhost:4000/auth/*                │   │
-│  │  /api/notion/* → http://localhost:4000/notion/*             │   │
-│  │  /api/health  → http://localhost:4000/health                │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  Benefits:                                                           │
-│  • Same-origin requests (no CORS issues)                            │
-│  • Session cookies work seamlessly                                  │
-│  • Clean API client with relative URLs                              │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    EXPRESS BACKEND (Port 4000)                      │
-│                                                                      │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
-│  │ Session     │ │ OAuth       │ │ Token       │ │ Notion API  │   │
-│  │ (Redis)     │ │ (PKCE)      │ │ (Encrypted) │ │ (REST)      │   │
-│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘   │
-│         │               │               │               │           │
-└─────────┼───────────────┼───────────────┼───────────────┼───────────┘
-          │               │               │               │
-          ▼               ▼               ▼               ▼
-     ┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-     │  Redis  │    │ Notion   │    │PostgreSQL│    │  Notion  │
-     │ (Cache) │    │  OAuth   │    │ (Tokens) │    │REST API  │
-     └─────────┘    └──────────┘    └──────────┘    └──────────┘
-```
-
----
-
-## Data Flow Pipeline
-
-### 1. OAuth Connection Flow
-
-```
-User clicks "Connect Notion"
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ POST /api/auth/notion/connect                                   │
-│                                                                  │
-│ 1. Generate PKCE verifier & challenge (S256)                    │
-│ 2. Generate random state parameter                              │
-│ 3. Store state + encrypted verifier in database                 │
-│ 4. Build authorization URL                                      │
-│ 5. Return URL to frontend                                       │
-└─────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-User authorizes on Notion
-         │
-         ▼
-Notion redirects to /callback?code=...&state=...
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ POST /api/auth/notion/callback                                  │
-│                                                                  │
-│ 1. Validate state (exists, not expired, not consumed)           │
-│ 2. Decrypt PKCE verifier                                        │
-│ 3. Exchange code for tokens (with PKCE + Basic Auth)            │
-│ 4. Encrypt access_token & refresh_token (AES-256-GCM)           │
-│ 5. Store encrypted tokens in PostgreSQL                         │
-│ 6. Mark state as consumed                                       │
-│ 7. Return success                                               │
-└─────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-User redirected to Dashboard
-```
-
-### 2. Notion API Request Flow
-
-```
-User clicks "Pages" or "Databases"
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ POST /api/notion/query                                          │
-│ Body: { action: "list_pages", params: {} }                      │
-│                                                                  │
-│ 1. Validate session → get user_id                               │
-│ 2. Get encrypted token from PostgreSQL                          │
-│ 3. Decrypt token (AES-256-GCM)                                  │
-│ 4. Check token expiry (refresh if needed)                       │
-│ 5. Map action: "list_pages" → "search_pages"                    │
-│ 6. Call Notion REST API: POST /v1/search                        │
-│    Headers:                                                     │
-│      Authorization: Bearer <access_token>                       │
-│      Notion-Version: 2022-06-28                                 │
-│    Body:                                                        │
-│      { page_size: 20, filter: { property: "object",             │
-│        value: "page" } }                                        │
-│ 7. Transform response:                                          │
-│    { results: [...] } → { pages: [...], databases: [...] }      │
-│ 8. Return transformed response                                  │
-└─────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-Frontend renders pages/databases
-```
-
----
+- Frontend: Next.js, React, TypeScript
+- Backend: Express, TypeScript, Zod
+- Data: PostgreSQL, Redis
+- Auth: Notion OAuth 2.0 with PKCE
+- Tooling: npm workspaces, Docker Compose, Vitest
 
 ## Project Structure
 
-```
+```text
 notion_connector/
-├── apps/
-│   ├── web/                          # Next.js Frontend
-│   │   ├── app/                      # App Router pages
-│   │   │   ├── layout.tsx            # Root layout
-│   │   │   ├── page.tsx              # Home page
-│   │   │   ├── callback/             # OAuth callback
-│   │   │   │   └── page.tsx
-│   │   │   ├── connect/              # Connect Notion page
-│   │   │   │   └── page.tsx
-│   │   │   └── dashboard/            # Dashboard (Notion data)
-│   │   │       └── page.tsx
-│   │   │
-│   │   ├── components/               # React components
-│   │   │   ├── notion/
-│   │   │   │   ├── ConnectButton.tsx       # "Connect Notion" button
-│   │   │   │   ├── ConnectionStatus.tsx    # Connection status display
-│   │   │   │   ├── DisconnectButton.tsx    # "Disconnect" button
-│   │   │   │   └── NotionDataView.tsx      # Pages/databases list
-│   │   │   └── ui/
-│   │   │       ├── ErrorBanner.tsx
-│   │   │       ├── LoadingSpinner.tsx
-│   │   │       └── SuccessToast.tsx
-│   │   │
-│   │   ├── hooks/                    # Custom React hooks
-│   │   │   ├── useNotionConnection.ts      # Connection state
-│   │   │   └── useNotionData.ts            # Data fetching
-│   │   │
-│   │   ├── lib/                      # Utilities
-│   │   │   └── api-client.ts               # HTTP client for backend
-│   │   │
-│   │   ├── types/                    # TypeScript types
-│   │   │   └── notion.ts                   # All type definitions
-│   │   │
-│   │   └── next.config.ts            # Next.js config (rewrites)
-│   │
-│   └── server/                       # Express Backend
-│       ├── src/
-│       │   ├── index.ts              # Server entry point
-│       │   │
-│       │   ├── config/               # Configuration
-│       │   │   ├── environment.ts          # Env var loading
-│       │   │   └── constants.ts            # App constants
-│       │   │
-│       │   ├── database/             # Database layer
-│       │   │   ├── client.ts               # PostgreSQL client
-│       │   │   ├── migrations/             # SQL migrations
-│       │   │   │   ├── 001_create_users.sql
-│       │   │   │   ├── 002_create_notion_connections.sql
-│       │   │   │   └── 003_create_oauth_states.sql
-│       │   │   └── seeds/
-│       │   │
-│       │   ├── middleware/           # Express middleware
-│       │   │   ├── session.middleware.ts    # Redis sessions
-│       │   │   ├── auth.middleware.ts       # Auth check
-│       │   │   ├── csrf.middleware.ts       # CSRF protection
-│       │   │   └── rate-limit.middleware.ts # Rate limiting
-│       │   │
-│       │   ├── modules/              # Business logic
-│       │   │   ├── oauth/                  # OAuth module
-│       │   │   │   ├── discovery.service.ts    # OAuth endpoint discovery
-│       │   │   │   ├── pkce.service.ts         # PKCE generation
-│       │   │   │   ├── authorization.service.ts # Auth URL builder
-│       │   │   │   ├── callback.service.ts     # Code exchange
-│       │   │   │   └── oauth.types.ts
-│       │   │   │
-│       │   │   ├── token/                  # Token management
-│       │   │   │   ├── token.service.ts        # Token operations
-│       │   │   │   ├── token.encryption.ts     # AES-256-GCM
-│       │   │   │   ├── token.repository.ts     # DB operations
-│       │   │   │   └── token.types.ts
-│       │   │   │
-│       │   │   ├── mcp/                    # Notion API module
-│       │   │   │   ├── notion-api.service.ts   # REST API calls
-│       │   │   │   ├── mcp-request.handler.ts  # Request orchestration
-│       │   │   │   └── mcp.types.ts
-│       │   │   │
-│       │   │   └── user/                   # User management
-│       │   │       ├── user.service.ts
-│       │   │       └── user.repository.ts
-│       │   │
-│       │   ├── routes/               # API routes
-│       │   │   ├── auth.routes.ts          # /auth/notion/*
-│       │   │   ├── notion.routes.ts        # /notion/*
-│       │   │   └── health.routes.ts        # /health
-│       │   │
-│       │   └── utils/                # Utilities
-│       │       ├── crypto.ts               # Crypto helpers
-│       │       ├── logger.ts               # Logging
-│       │       └── errors.ts               # Error classes
-│       │
-│       └── tests/                    # Test files
-│
-├── docker-compose.yml                # PostgreSQL + Redis
-├── .env                              # Environment variables
-├── package.json                      # Monorepo scripts
-└── README.md                         # This file
+  apps/
+    web/                 Next.js frontend
+      app/               App Router pages
+      components/        UI and Notion components
+      hooks/             React data hooks
+      lib/               API client
+      types/             Shared frontend types
+    server/              Express backend
+      src/
+        config/          Environment and constants
+        database/        PostgreSQL client, migrations, seeds
+        middleware/      Session, auth, CSRF, rate limiting
+        modules/         OAuth, token, Notion, and user logic
+        routes/          Express routes
+        utils/           Shared backend utilities
+  docker-compose.yml     Local PostgreSQL and Redis
+  package.json           Workspace scripts
+  README.md
 ```
-
----
-
-## Key Features
-
-- **OAuth 2.0 + PKCE**: Secure authentication with Notion
-- **Server-side Token Storage**: Encrypted tokens stored in PostgreSQL
-- **Session Management**: Redis-backed sessions with HttpOnly cookies
-- **Notion REST API Integration**: Direct API calls with OAuth tokens
-- **Token Refresh**: Automatic refresh with distributed locking
-- **CSRF Protection**: Origin/Referer validation
-
----
 
 ## Prerequisites
 
-- Node.js 18+
-- Docker & Docker Compose
-- Notion Integration (Client ID & Secret)
+- Node.js 18 or newer
+- npm
+- Docker and Docker Compose
+- A Notion integration with OAuth credentials
 
----
+## Getting Started
 
-## Quick Start
-
-### 1. Start Infrastructure Services
+### 1. Clone the Repository
 
 ```bash
+git clone <your-repo-url>
 cd notion_connector
-docker compose up -d
 ```
 
-This starts PostgreSQL (port 5432) and Redis (port 6379).
-
-### 2. Configure Environment
-
-The `.env` file contains all configuration. Key variables:
-
-```env
-# Notion OAuth (from your Notion integration settings)
-NOTION_CLIENT_ID=your_client_id
-NOTION_CLIENT_SECRET=your_client_secret
-NOTION_REDIRECT_URI=http://localhost:3000/callback
-
-# Backend URL (for Next.js proxy)
-BACKEND_URL=http://localhost:4000
-
-# Security (generate your own for production!)
-TOKEN_ENCRYPTION_KEY=  # 32 bytes, base64 encoded
-SESSION_SECRET=        # 64+ character random string
-```
-
-### 3. Install Dependencies
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 4. Run Database Migrations
+### 3. Start Local Services
+
+```bash
+npm run docker:up
+```
+
+This starts PostgreSQL on port `5432` and Redis on port `6379`.
+
+### 4. Configure Environment Variables
+
+Create an environment file for the backend at `apps/server/.env`.
+
+```env
+NOTION_CLIENT_ID=your_notion_client_id
+NOTION_CLIENT_SECRET=your_notion_client_secret
+NOTION_REDIRECT_URI=http://localhost:3000/callback
+
+DATABASE_URL=postgresql://notion_user:notion_pass@localhost:5432/notion_mcp
+REDIS_URL=redis://localhost:6379
+
+TOKEN_ENCRYPTION_KEY=base64_encoded_32_byte_key
+SESSION_SECRET=replace_with_at_least_64_random_characters
+
+APP_URL=http://localhost:3000
+BACKEND_URL=http://localhost:4000
+NODE_ENV=development
+PORT=4000
+LOG_LEVEL=info
+```
+
+Generate a token encryption key with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Generate a session secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Make sure your Notion integration redirect URI exactly matches:
+
+```text
+http://localhost:3000/callback
+```
+
+### 5. Run Database Migrations
 
 ```bash
 npm run migrate
 ```
 
-### 5. Start Development Servers
+### 6. Start the App
 
 ```bash
-# Start both frontend and backend
 npm run dev
-
-# Or start individually:
-npm run dev:server  # Backend on port 4000
-npm run dev:web     # Frontend on port 3000
 ```
 
-### 6. Open the Application
+The frontend runs at `http://localhost:3000`.
 
-Navigate to http://localhost:3000
+The backend runs at `http://localhost:4000`.
 
----
-
-## API Endpoints
-
-### Authentication
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/notion/connect` | POST | Initiates OAuth flow, returns authorization URL |
-| `/api/auth/notion/callback` | POST | Completes OAuth flow, exchanges code for tokens |
-
-### Notion Operations
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/notion/status` | GET | Returns connection status |
-| `/api/notion/query` | POST | Execute Notion API operations |
-| `/api/notion/disconnect` | POST | Disconnect Notion integration |
-
-### Health
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check endpoint |
-
----
-
-## Security Architecture
-
-### Token Storage
-- Access and refresh tokens are encrypted with AES-256-GCM
-- Each token has a unique IV (initialization vector)
-- Encryption key stored in environment variable (never in database)
-
-### Session Cookies
-- HttpOnly: Not accessible via JavaScript
-- Secure: HTTPS only in production
-- SameSite=Lax: CSRF protection while allowing OAuth redirects
-- Redis-backed: Scalable session storage
-
-### CSRF Protection
-- Origin/Referer header validation on mutating requests
-- State parameter in OAuth flow (one-time use, expires in 10 minutes)
-
----
-
-## Development
-
-### Available Scripts
+## Available Scripts
 
 ```bash
-# Development
-npm run dev              # Start both servers
-npm run dev:server       # Start backend only
-npm run dev:web          # Start frontend only
-
-# Database
-npm run migrate          # Run migrations
-npm run seed             # Seed database
-
-# Production
-npm run build            # Build both apps
-npm run start            # Start backend in production
-
-# Docker
-npm run docker:up        # Start PostgreSQL + Redis
-npm run docker:down      # Stop containers
-npm run docker:logs      # View container logs
+npm run dev             # Start frontend and backend
+npm run dev:web         # Start only the Next.js app
+npm run dev:server      # Start only the Express API
+npm run build           # Build both apps
+npm run start           # Start the built backend
+npm run migrate         # Run database migrations
+npm run seed            # Seed the database
+npm run lint            # Lint the backend
+npm run test            # Run backend tests
+npm run docker:up       # Start PostgreSQL and Redis
+npm run docker:down     # Stop PostgreSQL and Redis
+npm run docker:logs     # Tail service logs
 ```
 
----
+## API Overview
+
+Frontend requests are sent through Next.js rewrites under `/api/*`, then proxied to the Express backend.
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/auth/notion/connect` | `POST` | Create an OAuth authorization URL |
+| `/api/auth/notion/callback` | `POST` | Exchange an OAuth code for tokens |
+| `/api/notion/status` | `GET` | Check the current user's connection status |
+| `/api/notion/query` | `POST` | Run a supported Notion operation |
+| `/api/notion/disconnect` | `POST` | Remove the stored Notion connection |
+| `/api/health` | `GET` | Health check |
+
+Supported Notion actions include:
+
+| Action | Notion REST API |
+| --- | --- |
+| `list_pages` | `POST /v1/search` filtered by page objects |
+| `list_databases` | `POST /v1/search` filtered by database objects |
+| `search_pages` | `POST /v1/search` |
+| `get_page` | `GET /v1/pages/{pageId}` |
+| `get_database` | `GET /v1/databases/{databaseId}` |
+
+## Security Notes
+
+- Tokens are encrypted with AES-256-GCM before being stored.
+- The encryption key must be supplied through `TOKEN_ENCRYPTION_KEY`.
+- Session cookies are HttpOnly and use Redis-backed session storage.
+- OAuth state is one-time use and expires after a short window.
+- Mutating requests are protected with origin and referer validation.
+- Do not commit `.env` files or production secrets.
 
 ## Troubleshooting
 
-### Empty Results from Notion API
+### Notion Returns Empty Results
 
-**Cause**: Pages not shared with the integration.
+Make sure the relevant Notion pages are shared with your integration:
 
-**Fix**:
-1. Open Notion
-2. Go to a page you want to access
-3. Click "..." → "Add connections"
-4. Select your integration
-5. The page will now appear in search results
+1. Open the page in Notion.
+2. Select the page menu.
+3. Choose "Add connections".
+4. Select your integration.
 
-### Session Not Persisting
+### OAuth Callback Fails
 
-1. Check that cookies are being set (DevTools → Application → Cookies)
-2. Verify `credentials: "include"` in API requests
-3. Ensure `APP_URL` matches your frontend URL exactly
+Check that `NOTION_REDIRECT_URI` matches the redirect URI configured in Notion exactly, including protocol, host, port, and path.
 
-### OAuth Fails
+### Sessions Do Not Persist
 
-1. Verify `NOTION_REDIRECT_URI` matches exactly in Notion integration settings
-2. Check that state parameter is being passed correctly
-3. Verify PKCE verifier is being stored and retrieved
+Confirm Redis is running with:
 
-### Database Connection Issues
-
-1. Ensure PostgreSQL is running: `docker compose ps`
-2. Check `DATABASE_URL` format
-3. Run migrations: `npm run migrate`
-
----
-
-## Production Deployment
-
-### Environment Variables
-
-Ensure these are set in production:
-
-```env
-NODE_ENV=production
-APP_URL=https://your-domain.com
-NOTION_REDIRECT_URI=https://your-domain.com/callback
-TOKEN_ENCRYPTION_KEY=<generate-new-32-byte-key>
-SESSION_SECRET=<generate-new-64-char-secret>
-DATABASE_URL=<production-postgresql-url>
-REDIS_URL=<production-redis-url>
+```bash
+docker compose ps
 ```
 
-### Security Checklist
+Also check that `APP_URL` matches the frontend URL and that browser cookies are not being blocked.
 
-- [ ] Generate new `TOKEN_ENCRYPTION_KEY` (32 bytes, base64)
-- [ ] Generate new `SESSION_SECRET` (64+ random characters)
-- [ ] Enable HTTPS
-- [ ] Set `secure: true` for cookies (automatic in production)
-- [ ] Configure rate limiting appropriately
-- [ ] Review CORS settings for your domain
+### Database Connection Fails
 
----
+Confirm PostgreSQL is running, then rerun migrations:
+
+```bash
+npm run docker:up
+npm run migrate
+```
+
+## Contributing
+
+Contributions are welcome. To propose a change:
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Make a focused change.
+4. Run tests and linting where applicable.
+5. Open a pull request with a clear description.
+
+Good first contributions include improving setup docs, adding tests, tightening validation, expanding supported Notion operations, and improving the example UI.
 
 ## License
 
-MIT
+This project is intended to be open source. Add a `LICENSE` file before publishing the repository publicly. The MIT License is a common choice for starter projects, but choose the license that fits your goals.
+
+## Acknowledgements
+
+Built with Notion's public OAuth and REST APIs.
