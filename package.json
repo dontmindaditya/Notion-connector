@@ -22,6 +22,14 @@
     "apps/*"
   ],
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nanoid": "^6.0.2",
+    "picocolors": "^1.1.1",
+    "postcss": "^8.5.32",
+    "source-map-js": "^1.2.2"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "next": "^16.4.3"
   }
 }

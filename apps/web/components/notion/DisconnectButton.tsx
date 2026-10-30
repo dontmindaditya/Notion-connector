@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from "react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import type { DisconnectResponse } from "@/types/notion";
+import { LogOut } from '@heroicons/react/24/outline';
 
 interface DisconnectButtonProps {
   onDisconnected?: () => void;
@@ -36,7 +37,7 @@ function DisconnectButtonComponent({ onDisconnected }: DisconnectButtonProps) {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors underline underline-offset-2"
+        className="h-10 w-35 rounded-full bg-orange-500 hover:bg-red-700 text-xs"
       >
         Disconnect Notion
       </button>

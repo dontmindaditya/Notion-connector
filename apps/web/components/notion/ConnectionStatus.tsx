@@ -28,24 +28,24 @@ function ConnectionStatusComponent({
     { dot: string; label: string; sub?: string }
   > = {
     connected: {
-      dot: "bg-white",
+      dot: "bg-green-500",
       label: workspaceName ?? "Notion Connected",
       sub: connectedAt
         ? `Connected ${new Date(connectedAt).toLocaleDateString()}`
         : undefined,
     },
     not_connected: {
-      dot: "bg-neutral-600",
+      dot: "bg-orange-600",
       label: "Not connected",
       sub: "Connect your Notion workspace to get started",
     },
     error: {
-      dot: "bg-neutral-500",
+      dot: "bg-red-500",
       label: "Connection error",
       sub: "Something went wrong with the connection",
     },
     reconnection_required: {
-      dot: "bg-neutral-400 animate-pulse",
+      dot: "bg-blue-400 animate-pulse",
       label: "Reconnection needed",
       sub: "Your Notion connection has expired",
     },
