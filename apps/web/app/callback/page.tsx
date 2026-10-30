@@ -6,6 +6,8 @@ import { apiClient, ApiClientError } from "@/lib/api-client";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import type { CallbackResponse } from "@/types/notion";
+import { HomeIcon } from '@heroicons/react/24/outline';
+
 
 export default function CallbackPage() {
   const router = useRouter();
@@ -68,12 +70,17 @@ export default function CallbackPage() {
               onRetry={() => router.push("/connect")}
             />
 
-            {/* ✅ FIXED LINK */}
+            {/*FIXED LINK */}
+
             <a
               href="/"
-              className="text-sm text-neutral-500 hover:text-white transition-colors"
+              className="text-sm text-white hover:text-blue-500 transition-colors"
             >
-              ← Back to home
+              <div className="flex flex-wrap gap-2">
+                <HomeIcon className="w-5 h-5"/>
+                <p> Back to home </p>
+              </div>
+
             </a>
           </>
         ) : (

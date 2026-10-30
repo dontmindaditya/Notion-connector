@@ -11,6 +11,7 @@ import { NotionDataView } from "@/components/notion/NotionDataView";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { SuccessToast } from "@/components/ui/SuccessToast";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col">
+    <main className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Toast Notification */}
       {toast && (
         <SuccessToast message={toast} onClose={() => setToast(null)} />
@@ -50,10 +51,10 @@ export default function DashboardPage() {
             onClick={() => router.push("/")}
           >
             <div className="bg-white/10 p-1.5 rounded-lg border border-white/10">
-              <Image src="/logo.png" alt="Logo" width={20} height={20} />
+              <GlobeAltIcon className="h-12 w-12 rotate-[15deg]" />
             </div>
-            <span className="text-sm font-bold tracking-tight uppercase">
-              Notion MCP
+            <span className="text-xl font-bold tracking-tight">
+              NotionGenPDF
             </span>
           </div>
 
@@ -104,7 +105,7 @@ export default function DashboardPage() {
               <p className="text-neutral-500 text-sm mb-10 leading-relaxed">
                 {state === "reconnection_required"
                   ? "Your session has expired. Re-authenticate to keep using your workspace tools."
-                  : "Connect your workspace to enable AI-powered search and data querying."}
+                  : "Connect your workspace"}
               </p>
               <ConnectButton className="w-full py-4 rounded-xl" />
             </div>
@@ -116,7 +117,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
             
             {/* Dashboard Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+            <div className="translate-x-1 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">Your Workspace</h2>
                 <p className="text-neutral-400 mt-2 text-base">
@@ -127,16 +128,16 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <button 
                    onClick={() => refetch()}
-                   className="px-4 py-2 text-sm font-medium border border-neutral-800 rounded-xl hover:bg-neutral-900 transition"
+                   className="h-10 w-20 rounded-full px-4 py-2 text-lg text-white-300 font-medium bg-sky-500 hover:bg-sky-700"
                 >
-                  Refresh Data
+                  Refresh
                 </button>
                 <DisconnectButton onDisconnected={handleDisconnected} />
               </div>
             </div>
 
             {/* Main Data View Card */}
-            <div className="bg-[#0A0A0A] border border-neutral-800 rounded-[32px] overflow-hidden shadow-2xl">
+            <div className="translate-x-9 bg-gray shadow-2xl">
               <div className="p-1">
                 <NotionDataView />
               </div>

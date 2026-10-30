@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useNotionConnection } from "@/hooks/useNotionConnection";
 import { ConnectButton } from "@/components/notion/ConnectButton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 export default function HomePage() {
   const router = useRouter();
@@ -25,18 +26,12 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col p-6 md:p-10">
+    <main className="min-h-screen bg-gray-900 text-white flex flex-col p-6 md:p-10">
       
       {/* Logo Header */}
       <div className="flex items-center gap-2 text-xl font-semibold mb-8">
-        <Image
-          src="/logo.png"
-          alt="Logo"
-          width={28}
-          height={28}
-          className="brightness-200"
-        />
-        <span>Fairquanta</span>
+        <GlobeAltIcon className="h-12 w-12 rotate-[15deg]" />
+        <span>NotionGenPDF</span>
       </div>
 
       {/* Main Content */}
@@ -61,13 +56,12 @@ export default function HomePage() {
 
             {/* Heading */}
             <h1 className="text-3xl font-bold text-center leading-tight mb-6">
-              Connect your <br /> Notion workspace
+              Integrate your <br /> Notion workspace
             </h1>
 
             {/* Description */}
             <p className="text-neutral-400 text-center text-sm leading-relaxed px-2 mb-12">
-              Link your Notion account to search pages, query databases, and
-              interact with your workspace through MCP.
+              Integrate your Notion account.
             </p>
           </div>
 

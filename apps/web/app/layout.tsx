@@ -13,8 +13,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Notion MCP Integration",
-  description: "Connect and interact with your Notion workspace via MCP",
+  title: "NotionGenPDF",
+  description: "Connect and interact with your Notion workspace",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} font-[var(--font-space-grotesk)] bg-black text-white min-h-screen antialiased`}
+        className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} font-[var(--font-space-grotesk)] bg-black text-white antialiased`}
       >
         {children}
       </body>

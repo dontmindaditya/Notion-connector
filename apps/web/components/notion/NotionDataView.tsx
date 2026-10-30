@@ -5,6 +5,7 @@ import { useNotionData } from "@/hooks/useNotionData";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import type { NotionPage, NotionDatabase } from "@/types/notion";
+import { ArrowUpRightIcon } from '@heroicons/react/24/outline';
 
 function NotionDataViewComponent() {
   const { data, loading, error, query, reset } = useNotionData();
@@ -35,7 +36,7 @@ function NotionDataViewComponent() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {/* Search Bar */}
       <div className="flex flex-col sm:flex-row gap-2">
         <input
@@ -44,12 +45,12 @@ function NotionDataViewComponent() {
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Search your Notion pages..."
-          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-neutral-600 transition-colors"
+          className="flex-1 bg-white border border-neutral-800 rounded-xl px-4 py-3 text-sm text-black placeholder:text-neutral-600 outline-none focus:border-neutral-600 transition-colors"
         />
         <button
           onClick={handleSearch}
           disabled={loading || !searchInput.trim()}
-          className="bg-white text-black font-medium text-sm px-5 py-3 rounded-xl hover:bg-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 w-full sm:w-auto"
+          className="h-10 w-20 bg-white border-purple-200 text-purple-600 hover:border-transparent hover:bg-purple-600 hover:text-white active:bg-purple-700 text-black font-medium text-sm px-5 py-3 rounded-full disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
           Search
         </button>
@@ -68,7 +69,7 @@ function NotionDataViewComponent() {
         >
           Pages
         </button>
-        <button
+        {/*<button
           onClick={handleListDatabases}
           disabled={loading}
           className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
@@ -78,7 +79,7 @@ function NotionDataViewComponent() {
           } disabled:opacity-40`}
         >
           Databases
-        </button>
+        </button>*/}
         {data && (
           <button
             onClick={reset}
@@ -127,6 +128,7 @@ function NotionDataViewComponent() {
                 Pages
               </h3>
               {data.pages.map((page: NotionPage) => (
+                <>
                 <a
                   key={page.id}
                   href={page.url ?? "#"}
@@ -145,16 +147,18 @@ function NotionDataViewComponent() {
                       </p>
                     )}
                   </div>
-                  <span className="text-neutral-700 group-hover:text-neutral-500 transition-colors text-xs">
-                    {"↗"}
-                  </span>
+                  <ArrowUpRightIcon className="h-5 w-5"/>
                 </a>
+                <button className="w-30 rounded-full bg-sky-500 hover:bg-sky-700 transition-colors">
+                    Generate PDF
+                </button>
+                </>
               ))}
             </div>
           )}
 
           {/* Databases */}
-          {data.databases && data.databases.length > 0 && (
+          {/*data.databases && data.databases.length > 0 && (
             <div className="flex flex-col gap-2">
               <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Databases
@@ -176,13 +180,11 @@ function NotionDataViewComponent() {
                       <p className="text-xs text-neutral-600 truncate">{db.description}</p>
                     )}
                   </div>
-                  <span className="text-neutral-700 group-hover:text-neutral-500 transition-colors text-xs">
-                    {"↗"}
-                  </span>
+                  <ArrowUpRightIcon className="h-5 w-5"/>
                 </a>
               ))}
             </div>
-          )}
+          )*/}
 
           {/* Empty State */}
           {(!data.pages || data.pages.length === 0) &&

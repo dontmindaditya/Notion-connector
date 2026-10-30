@@ -77,22 +77,17 @@ function ConnectButtonComponent({
       <button
         onClick={handleConnect}
         disabled={loading}
-        className="group relative flex items-center gap-3 bg-white text-black font-semibold text-base px-8 py-4 rounded-2xl hover:bg-neutral-100 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/5"
+        className="h-10 w-35 rounded-full bg-neutral-500 hover:bg-neutral-700"
       >
         {loading ? (
           <>
-            <div className="h-5 w-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-            <span>Connecting…</span>
+            <div className="flex flex-wrap gap-1">
+              <span>Connecting…</span>
+              <div className="h-5 w-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+            </div>
           </>
         ) : (
           <>
-            <Image
-              src="/notion.png"
-              alt="Notion"
-              width={20}
-              height={20}
-              className="group-hover:scale-110 transition-transform"
-            />
             <span>Connect Notion</span>
           </>
         )}

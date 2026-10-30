@@ -65,7 +65,7 @@ export function loadEnv(): Env {
     const formatted = result.error.issues
       .map((i) => `  • ${i.path.join(".")}: ${i.message}`)
       .join("\n");
-    console.error(`\n❌ Environment validation failed:\n${formatted}\n`);
+    console.error(`\n Environment validation failed:\n${formatted}\n`);
     process.exit(1);
   }
 
